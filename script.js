@@ -2,8 +2,7 @@ import React, { useState } from 'react';
 import './App.css';
 
 const HUGGING_FACE_API_KEY = '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'; // Добавьте свой ключ
-const API_URL = "https://api-inference.huggingface.co/models/microsoft/DialoGPT-medium";
-const TRANSLATE_API_URL = "https://api-inference.huggingface.co/models/Helsinki-NLP/opus-mt-en-ru";
+const API_URL = "https://api-inference.huggingface.co/models/tinkoff-ai/ruDialoGPT-medium";
 
 function App() {
   const [input, setInput] = useState('');
@@ -31,7 +30,13 @@ function App() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          inputs: input
+          inputs: input,
+          parameters: {
+            max_length: 100,
+            temperature: 0.7,
+            top_p: 0.9,
+            repetition_penalty: 1.2
+          }
         }),
       });
 
@@ -46,32 +51,8 @@ function App() {
       }
 
       let message = data[0].generated_text;
-
-      // Переводим ответ на русский
-      if (!/[а-яА-Я]/.test(message)) {
-        const translateResponse = await fetch(TRANSLATE_API_URL, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${HUGGING_FACE_API_KEY}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            inputs: message,
-          }),
-        });
-
-        if (!translateResponse.ok) {
-          throw new Error(`Ошибка перевода! status: ${translateResponse.status}`);
-        }
-
-        const translateData = await translateResponse.json();
-        
-        if (!translateData || !translateData[0] || !translateData[0].translation_text) {
-          throw new Error('Ошибка при переводе ответа');
-        }
-
-        message = translateData[0].translation_text;
-      }
+      // Убираем повтор входного сообщения из ответа
+      message = message.replace(input, '').trim();
 
       setMessages(messages => [...messages, { role: 'assistant', content: message }]);
     } catch (error) {
@@ -82,8 +63,8 @@ function App() {
         errorMessage += 'Пожалуйста, установите правильный API ключ Hugging Face.';
       } else if (error.message.includes('HTTP error')) {
         errorMessage += 'Проблема с подключением к серверу. Попробуйте позже.';
-      } else if (error.message.includes('перевода')) {
-        errorMessage += 'Проблема с переводом ответа.';
+      } else if (error.message.includes('Model is loading')) {
+        errorMessage += 'Модель загружается, попробуйте через 1-2 минуты.';
       } else {
         errorMessage += 'Попробуйте еще раз через несколько минут.';
       }
@@ -123,4 +104,4 @@ function App() {
   );
 }
 
-export default App; 
+export default App;
